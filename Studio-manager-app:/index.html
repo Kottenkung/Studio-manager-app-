@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Studio Manager Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .nav-tab {
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .nav-tab.active {
+            border-bottom-color: #4f46e5;
+            background: rgba(79, 70, 229, 0.1);
+        }
+        
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff, #f8fafc);
+            border-left: 4px solid #4f46e5;
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen">
+    <!-- Header -->
+    <header class="glass-effect text-white p-4 mb-6">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold flex items-center">
+                🎬 Studio Manager Pro
+            </h1>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm opacity-80">Senast uppdaterad: <span id="lastUpdate">Nu</span></span>
+                <button onclick="exportData()" class="bg-white bg-opacity-20 px-4 py-2 rounded-lg hover:bg-opacity-30 transition">
+                    📤 Exportera Data
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="container mx-auto mb-6">
+        <div class="glass-effect rounded-lg p-1">
+            <div class="flex space-x-1">
+                <button onclick="showTab('dashboard')" class="nav-tab active flex-1 py-3 px-4 text-white rounded-md" id="tab-dashboard">
+                    📊 Dashboard
+                </button>
+                <button onclick="showTab('roi')" class="nav-tab flex-1 py-3 px-4 text-white rounded-md" id="tab-roi">
+                    💰 ROI Kalkylator
+                </button>
+                <button onclick="showTab('packlists')" class="nav-tab flex-1 py-3 px-4 text-white rounded-md" id="tab-packlists">
+                    📋 Packlistor
+                </button>
+                <button onclick="showTab('analysis')" class="nav-tab flex-1 py-3 px-4 text-white rounded-md" id="tab-analysis">
+                    🔍 Konkurrensanalys
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4">
+        <!-- Dashboard Tab -->
+        <div id="dashboard-content" class="tab-content">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="stat-card p-6 rounded-lg shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Total Intäkter (Månad)</p>
+                            <p class="text-3xl font-bold text-gray-800" id="totalRevenue">0 kr</p>
+                        </div>
+                        <div class="text-4xl">💵</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card p-6 rounded-lg shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Aktiva Uthyrningar</p>
+                            <p class="text-3xl font-bold text-gray-800" id="activeRentals">0</p>
+                        </div>
+                        <div class="text-4xl">📦</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card p-6 rounded-lg shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Uthyrningsgrad</p>
+                            <p class="text-3xl font-bold text-gray-800" id="utilizationRate">0%</p>
+                        </div>
+                        <div class="text-4xl">📈</div>
+                    </div>
+                </div>
+                
+                <div class="stat-card p-6 rounded-lg shadow-lg card-hover">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm">Outnyttjad Utrustning</p>
+                            <p class="text-3xl font-bold text-gray-800" id="underutilized">0</p>
+                        </div>
+                        <div class="text-4xl">⚠️</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
+                    <h3 class="text-xl font-bold mb-4 text-gray-800">Mest Uthyrda Produkter</h3>
+                    <canvas id="topProductsChart" width="400" height="300"></canvas>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
+                    <h3 class="text-xl font-bold mb-4 text-gray-800">Intäkter per Kategori</h3>
+                    <canvas id="categoryRevenueChart" width="400" height="300"></canvas>
+                </div>
+            </div>
+
+            <!-- Equipment Status Table -->
+            <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
+                <h3 class="text-xl font-bold mb-4 text-gray-800">Utrustningsstatus</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full table-auto">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-2 text-left">Produkt</th>
+                                <th class="px-4 py-2 text-left">Kategori</th>
+                                <th class="px-4 py-2 text-left">Status</th>
+                                <th class="px-4 py-2 text-left">Senaste Uthyrning</th>
+                                <th class="px-4 py-2 text-left">Intäkter (30d)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equipmentTable">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROI Calculator Tab -->
+        <div id="roi-content" class="tab-content hidden">
+            <div class="max-w-4xl mx-auto">
+                <div class="bg-white rounded-lg shadow-lg p-8">
+                    <h2 class="text-2xl font-bold mb-6 text-gray-800">🎯 ROI Kalkylator för Nya Inköp</h2>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Input Form -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Produktinformation</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Produktnamn</label>
+                                    <input type="text" id="roiProductName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="t.ex. Sony FX6 Kamera">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Inköpspris (kr)</label>
+                                    <input type="number" id="roiPurchasePrice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="85000">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Uthyrningspris per dag (kr)</label>
+                                    <input type="number" id="roiDayPrice" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="1200">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Förväntade uthyrningsdagar per månad</label>
+                                    <input type="number" id="roiDaysPerMonth" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="8">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Underhållskostnad per månad (kr)</label>
+                                    <input type="number" id="roiMaintenanceCost" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="500">
+                                </div>
+                                
+                                <button onclick="calculateROI()" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 transition font-semibold">
+                                    Beräkna ROI
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Results -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-4">Kalkylresultat</h3>
+                            <div id="roiResults" class="space-y-4">
+                                <p class="text-gray-500">Fyll i formuläret för att se beräkningar</p>
+                            </div>
+                            
+                            <!-- ROI Chart -->
+                            <div class="mt-6">
+                                <canvas id="roiChart" width="400" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Packlists Tab -->
+        <div id="packlists-content" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">📋 Kommande Packlistor</h2>
+                    <button onclick="syncBookings()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                        🔄 Synka Bokningar
+                    </button>
+                </div>
+                
+                <div id="packlistsContainer">
+                    <!-- Packlists will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Competition Analysis Tab -->
+        <div id="analysis-content" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800">🔍 AI Konkurrensanalys</h2>
+                    <button onclick="runCompetitionAnalysis()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                        🚀 Kör Analys
+                    </button>
+                </div>
+                
+                <div id="analysisResults">
+                    <p class="text-gray-500">Klicka på "Kör Analys" för att starta konkurrensanalys av filmstudios i Stockholm</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let equipmentData = [];
+        let bookingsData = [];
+        let roiChart = null;
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            loadSampleData();
+            updateDashboard();
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleString('sv-SE');
+        });
+
+        function initializeApp() {
+            // Initialize IndexedDB or localStorage for data persistence
+            if (!localStorage.getItem('studioManagerData')) {
+                localStorage.setItem('studioManagerData', JSON.stringify({
+                    equipment: [],
+                    bookings: [],
+                    settings: {}
+                }));
+            }
+        }
+
+        function loadSampleData() {
+            // Sample equipment data
+            equipmentData = [
+                { id: 1, name: 'Sony FX6', category: 'Kameror', status: 'Tillgänglig', lastRental: '2025-07-20', revenue30d: 15600, rentals: 13 },
+                { id: 2, name: 'ARRI SkyPanel S60', category: 'Ljus', status: 'Uthyrd', lastRental: '2025-07-22', revenue30d: 8400, rentals: 7 },
+                { id: 3, name: 'DJI Ronin 4D', category: 'Gimbal', status: 'Tillgänglig', lastRental: '2025-07-15', revenue30d: 12000, rentals: 10 },
+                { id: 4, name: 'Zoom F8n Pro', category: 'Ljud', status: 'Service', lastRental: '2025-07-10', revenue30d: 4200, rentals: 6 },
+                { id: 5, name: 'Blackmagic URSA Mini Pro', category: 'Kameror', status: 'Tillgänglig', lastRental: '2025-06-25', revenue30d: 800, rentals: 1 }
+            ];
+
+            // Sample bookings data
+            bookingsData = [
+                {
+                    id: 1,
+                    customer: { name: 'AB Filmproduktion', contact: 'anna@abfilm.se', phone: '08-123456' },
+                    startDate: '2025-07-25',
+                    endDate: '2025-07-27',
+                    equipment: ['Sony FX6', 'ARRI SkyPanel S60', 'DJI Ronin 4D'],
+                    status: 'Bekräftad'
+                },
+                {
+                    id: 2,
+                    customer: { name: 'Creative Studios', contact: 'erik@creative.se', phone: '08-654321' },
+                    startDate: '2025-07-28',
+                    endDate: '2025-07-30',
+                    equipment: ['Blackmagic URSA Mini Pro', 'Zoom F8n Pro'],
+                    status: 'Preliminär'
+                }
+            ];
+        }
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+
+            // Show selected tab
+            document.getElementById(tabName + '-content').classList.remove('hidden');
+            document.getElementById('tab-' + tabName).classList.add('active');
+
+            // Load tab-specific content
+            switch(tabName) {
+                case 'dashboard':
+                    updateDashboard();
+                    break;
+                case 'roi':
+                    // ROI tab is already loaded
+                    break;
+                case 'packlists':
+                    loadPacklists();
+                    break;
+                case 'analysis':
+                    // Analysis tab loads on demand
+                    break;
+            }
+        }
+
+        function updateDashboard() {
+            // Update stats cards
+            const totalRevenue = equipmentData.reduce((sum, item) => sum + item.revenue30d, 0);
+            const activeRentals = equipmentData.filter(item => item.status === 'Uthyrd').length;
+            const utilizationRate = Math.round((equipmentData.filter(item => item.rentals > 0).length / equipmentData.length) * 100);
+            const underutilized = equipmentData.filter(item => item.rentals < 3).length;
+
+            document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString('sv-SE') + ' kr';
+            document.getElementById('activeRentals').textContent = activeRentals;
+            document.getElementById('utilizationRate').textContent = utilizationRate + '%';
+            document.getElementById('underutilized').textContent = underutilized;
+
+            // Update charts
+            updateTopProductsChart();
+            updateCategoryRevenueChart();
+            updateEquipmentTable();
+        }
+
+        function updateTopProductsChart() {
+            const ctx = document.getElementById('topProductsChart').getContext('2d');
+            const sortedEquipment = [...equipmentData].sort((a, b) => b.rentals - a.rentals).slice(0, 5);
+            
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedEquipment.map(item => item.name),
+                    datasets: [{
+                        label: 'Antal uthyrningar',
+                        data: sortedEquipment.map(item => item.rentals),
+                        backgroundColor: 'rgba(79, 70, 229, 0.8)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCategoryRevenueChart() {
+            const ctx = document.getElementById('categoryRevenueChart').getContext('2d');
+            const categoryRevenue = {};
+            
+            equipmentData.forEach(item => {
+                if (!categoryRevenue[item.category]) {
+                    categoryRevenue[item.category] = 0;
+                }
+                categoryRevenue[item.category] += item.revenue30d;
+            });
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryRevenue),
+                    datasets: [{
+                        data: Object.values(categoryRevenue),
+                        backgroundColor: [
+                            'rgba(79, 70, 229, 0.8)',
+                            'rgba(34, 197, 94, 0.8)',
+                            'rgba(251, 191, 36, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(168, 85, 247, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updateEquipmentTable() {
+            const tableBody = document.getElementById('equipmentTable');
+            tableBody.innerHTML = '';
+
+            equipmentData.forEach(item => {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+                
+                const statusColor = item.status === 'Tillgänglig' ? 'text-green-600' : 
+                                  item.status === 'Uthyrd' ? 'text-blue-600' : 'text-orange-600';
+                
+                row.innerHTML = `
+                    <td class="px-4 py-2 font-medium">${item.name}</td>
+                    <td class="px-4 py-2">${item.category}</td>
+                    <td class="px-4 py-2 ${statusColor}">${item.status}</td>
+                    <td class="px-4 py-2">${item.lastRental}</td>
+                    <td class="px-4 py-2">${item.revenue30d.toLocaleString('sv-SE')} kr</td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        function calculateROI() {
+            const productName = document.getElementById('roiProductName').value;
+            const purchasePrice = parseFloat(document.getElementById('roiPurchasePrice').value);
+            const dayPrice = parseFloat(document.getElementById('roiDayPrice').value);
+            const daysPerMonth = parseFloat(document.getElementById('roiDaysPerMonth').value);
+            const maintenanceCost = parseFloat(document.getElementById('roiMaintenanceCost').value);
+
+            if (!productName || !purchasePrice || !dayPrice || !daysPerMonth) {
+                alert('Vänligen fyll i alla obligatoriska fält');
+                return;
+            }
+
+            const monthlyRevenue = dayPrice * daysPerMonth;
+            const monthlyProfit = monthlyRevenue - maintenanceCost;
+            const breakEvenMonths = Math.ceil(purchasePrice / monthlyProfit);
+            const yearlyROI = ((monthlyProfit * 12 - purchasePrice) / purchasePrice) * 100;
+
+            const resultsDiv = document.getElementById('roiResults');
+            resultsDiv.innerHTML = `
+                <div class="space-y-3">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h4 class="font-semibold text-blue-800">Månadsintäkter</h4>
+                        <p class="text-2xl font-bold text-blue-600">${monthlyRevenue.toLocaleString('sv-SE')} kr</p>
+                    </div>
+                    
+                    <div class="p-4 bg-green-50 rounded-lg">
+                        <h4 class="font-semibold text-green-800">Månadsvinst (efter underhåll)</h4>
+                        <p class="text-2xl font-bold text-green-600">${monthlyProfit.toLocaleString('sv-SE')} kr</p>
+                    </div>
+                    
+                    <div class="p-4 bg-orange-50 rounded-lg">
+                        <h4 class="font-semibold text-orange-800">Break-even tid</h4>
+                        <p class="text-2xl font-bold text-orange-600">${breakEvenMonths} månader</p>
+                    </div>
+                    
+                    <div class="p-4 bg-purple-50 rounded-lg">
+                        <h4 class="font-semibold text-purple-800">Årlig ROI (efter break-even)</h4>
+                        <p class="text-2xl font-bold text-purple-600">${yearlyROI.toFixed(1)}%</p>
+                    </div>
+                </div>
+            `;
+
+            // Update ROI chart
+            updateROIChart(purchasePrice, monthlyProfit, breakEvenMonths);
+        }
+
+        function updateROIChart(purchasePrice, monthlyProfit, breakEvenMonths) {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            
+            if (roiChart) {
+                roiChart.destroy();
+            }
+
+            const months = Array.from({length: 24}, (_, i) => i + 1);
+            const cumulativeProfit = months.map(month => {
+                const totalProfit = (monthlyProfit * month) - purchasePrice;
+                return totalProfit;
+            });
+
+            roiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Kumulativ vinst (kr)',
+                        data: cumulativeProfit,
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }, {
+                        label: 'Break-even',
+                        data: Array(24).fill(0),
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        borderDash: [5, 5],
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString('sv-SE') + ' kr';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadPacklists() {
+            const container = document.getElementById('packlistsContainer');
+            container.innerHTML = '';
+
+            bookingsData.forEach(booking => {
+                const packlistCard = document.createElement('div');
+                packlistCard.className = 'bg-gray-50 rounded-lg p-6 mb-4 card-hover';
+                
+                packlistCard.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold text-gray-800">${booking.customer.name}</h3>
+                            <p class="text-gray-600">${booking.customer.contact} | ${booking.customer.phone}</p>
+                            <p class="text-sm text-gray-500">Status: <span class="font-semibold">${booking.status}</span></p>
+                        </div>
+                        <button onclick="exportPacklist(${booking.id})" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                            📄 Exportera PDF
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Uthyrningsperiod</h4>
+                            <p class="text-gray-600">Från: ${booking.startDate}</p>
+                            <p class="text-gray-600">Till: ${booking.endDate}</p>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-700">Utrustning (${booking.equipment.length} artiklar)</h4>
+                            <ul class="text-gray-600">
+                                ${booking.equipment.map(item => `<li>• ${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(packlistCard);
+            });
+        }
+
+        function syncBookings() {
+            // Simulate API sync
+            alert('Synkning med Booqable API skulle ske här. Implementera med din API-nyckel.');
+        }
+
+        function exportPacklist(bookingId) {
+            // Find booking
+            const booking = bookingsData.find(b => b.id === bookingId);
+            if (!booking) return;
+
+            // Create PDF using jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Header
+            doc.setFontSize(20);
+            doc.text('PACKLISTA', 20, 30);
+            
+            doc.setFontSize(12);
+            doc.text(`Kund: ${booking.customer.name}`, 20, 50);
+            doc.text(`Kontakt: ${booking.customer.contact}`, 20, 60);
+            doc.text(`Period: ${booking.startDate} - ${booking.endDate}`, 20, 70);
+            
+            // Equipment list
+            doc.text('UTRUSTNING:', 20, 90);
+            let yPos = 100;
+            booking.equipment.forEach(item => {
+                doc.text(`• ${item}`, 25, yPos);
+                yPos += 10;
+            });
+            
+            // Footer
+            doc.text(`Genererad: ${new Date().toLocaleString('sv-SE')}`, 20, 280);
+            
+            // Save
+            doc.save(`Packlista_${booking.customer.name}_${booking.startDate}.pdf`);
+        }
+
+        function runCompetitionAnalysis() {
+            const resultsDiv = document.getElementById('analysisResults');
+            resultsDiv.innerHTML = '<div class="text-center py-8"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div><p class="mt-4 text-gray-600">Analyserar konkurrenter...</p></div>';
+
+            // Simulate analysis
+            setTimeout(() => {
+                resultsDiv.innerHTML = `
+                    <div class="space-y-6">
+                        <div class="bg-blue-50 p-6 rounded-lg">
+                            <h3 class="text-lg font-bold text-blue-800 mb-3">🎯 Analys Sammanfattning</h3>
+                            <p class="text-blue-700">Analyserade 12 filmstudios i Stockholm. Här är dina viktigaste insikter:</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-green-800">🚀 Möjligheter</h4>
+                                <ul class="mt-2 text-green-700 text-sm space-y-1">
+                                    <li>• Era priser är 15% under marknadsgenomsnittet</li>
+                                    <li>• Få konkurrenter erbjuder 4K livestreaming-utrustning</li>
+                                    <li>• Hög efterfrågan på drone-utrustning</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <h4 class="font-semibold text-orange-800">⚠️ Förbättringsområden</h4>
+                                <ul class="mt-2 text-orange-700 text-sm space-y-1">
+                                    <li>• Marknadsför era nya LED-paneler mer aktivt</li>
+                                    <li>• Förbättra er online-bokningsprocess</li>
+                                    <li>• Överväg paketpriser för helger</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border-l-4 border-blue-500 p-4">
+                            <h4 class="font-semibold text-gray-800">💡 AI-rekommendationer</h4>
+                            <p class="text-gray-600 mt-2">Baserat på konkurrentanalys rekommenderar vi att fokusera på premium-segmentet med specialiserad utrustning och personlig service.</p>
+                        </div>
+                        
+                        <button onclick="exportAnalysis()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                            📊 Exportera Fullständig Rapport
+                        </button>
+                    </div>
+                `;
+            }, 3000);
+        }
+
+        function exportAnalysis() {
+            alert('Fullständig konkurrensanalys skulle exporteras som PDF här.');
+        }
+
+        function exportData() {
+            const data = {
+                equipment: equipmentData,
+                bookings: bookingsData,
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `studio-manager-data-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
